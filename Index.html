@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>NEO TETRIS AI GENIUS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    
+    :root {
+      --neon-cyan: #00f3ff;
+      --neon-pink: #ff00ff;
+      --neon-green: #00ff88;
+      --neon-orange: #ff6600;
+      --neon-red: #ff0040;
+      --neon-yellow: #ffdd00;
+      --neon-purple: #aa00ff;
+      --dark-bg: #0a0a1a;
+      --glass-bg: rgba(20, 20, 40, 0.85);
+      --btn-size: 55px;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background: var(--dark-bg);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #fff;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    .background-fx {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    
+    .grid-line {
+      position: absolute;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+      opacity: 0.08;
+      animation: line-pulse 4s infinite;
+    }
+    
+    @keyframes line-pulse {
+
+      0%,
+      100% {
+        opacity: 0.08;
+      }
+      
+      50% {
+        opacity: 0.15;
+      }
+    }
+    
+    .grid-line.horizontal {
+      height: 1px;
+      width: 100%;
+    }
+    
+    .grid-line.vertical {
+      width: 1px;
+      height: 100%;
+    }
+    
+    .neural-network-bg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: 0.1;
+    }
+    
+    .node {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: var(--neon-cyan);
+      border-radius: 50%;
+      animation: node-float 5s infinite;
+    }
+    
+    @keyframes node-float {
+
+      0%,
+      100% {
+        transform: translateY(0) scale(1);
+      }
+      
+      50% {
+        transform: translateY(-20px) scale(1.5);
+      }
+    }
+    
+    .game-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      width: 100%;
+      padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom) 8px;
+    }
+    
+    .header {
+      text-align: center;
+      padding: 6px 0;
+      flex-shrink: 0;
+    }
+    
+    .header h1 {
+      font-size: 15px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    
+    .stats-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 6px 0;
+      flex-shrink: 0;
+    }
+    
+    .stat-box {
+      background: var(--glass-bg);
+      border: 1px solid var(--neon-cyan);
+      border-radius: 8px;
+      padding: 5px 8px;
+      flex: 1;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s ease;
+    }
+    
+    .stat-box.warning {
+      border-color: var(--neon-red);
+      animation: warning-pulse 0.4s infinite;
+    }
+    
+    .stat-box.genius {
+      border-color: var(--neon-purple);
+      box-shadow: 0 0 10px rgba(170, 0, 255, 0.3);
+    }
+    
+    @keyframes warning-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 5px var(--neon-red);
+      }
+      
+      50% {
+        box-shadow: 0 0 15px var(--neon-red);
+      }
+    }
+    
+    .stat-label {
+      font-size: 7px;
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .stat-value {
+      font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+      line-height: 1.2;
+    }
+    
+    .main-area {
+      display: flex;
+      flex: 1;
+      gap: 8px;
+      justify-content: center;
+      align-items: flex-start;
+      overflow: hidden;
+      min-height: 0;
+    }
+    
+    .game-board-wrapper {
+      position: relative;
+      flex-shrink: 0;
+    }
+    
+    .game-board {
+      background: var(--glass-bg);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 10px;
+      padding: 5px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+    }
+    
+    #tetris-canvas {
+      display: block;
+      border-radius: 6px;
+      touch-action: none;
+    }
+    
+    .ai-indicator {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--neon-green);
+      color: #000;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 7px;
+      font-weight: bold;
+      animation: ai-pulse 1s infinite;
+      z-index: 10;
+      white-space: nowrap;
+    }
+    
+    @keyframes ai-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 6px var(--neon-green);
+      }
+      
+      50% {
+        box-shadow: 0 0 12px var(--neon-green);
+      }
+    }
+    
+    .ai-indicator.thinking {
+      background: var(--neon-purple);
+      animation: thinking-pulse 0.4s infinite;
+    }
+    
+    @keyframes thinking-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 6px var(--neon-purple);
+      }
+      
+      50% {
+        box-shadow: 0 0 14px var(--neon-purple);
+      }
+    }
+    
+    .ai-indicator.danger {
+      background: var(--neon-red);
+      animation: danger-pulse 0.3s infinite;
+    }
+    
+    @keyframes danger-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 6px var(--neon-red);
+      }
+      
+      50% {
+        box-shadow: 0 0 14px var(--neon-red);
+      }
+    }
+    
+    .ai-indicator.tetris {
+      background: var(--neon-yellow);
+      color: #000;
+      animation: tetris-pulse 0.5s infinite;
+    }
+    
+    @keyframes tetris-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 8px var(--neon-yellow);
+        transform: scale(1);
+      }
+      
+      50% {
+        box-shadow: 0 0 16px var(--neon-yellow);
+        transform: scale(1.1);
+      }
+    }
+    
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    
+    .panel-box {
+      background: var(--glass-bg);
+      border: 1px solid var(--neon-cyan);
+      border-radius: 8px;
+      padding: 6px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .panel-title {
+      font-size: 7px;
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    
+    #next-canvas {
+      display: block;
+      margin: 0 auto;
+    }
+    
+    .ai-stats {
+      font-size: 7px;
+    }
+    
+    .ai-stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 3px;
+    }
+    
+    .ai-progress {
+      width: 45px;
+      height: 4px;
+      background: rgba(0, 243, 255, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .ai-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green));
+      transition: width 0.2s ease;
+    }
+    
+    .ai-progress-fill.danger {
+      background: linear-gradient(90deg, var(--neon-orange), var(--neon-red));
+    }
+    
+    .ai-progress-fill.genius {
+      background: linear-gradient(90deg, var(--neon-purple), var(--neon-pink));
+    }
+    
+    .brain-stats {
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(0, 243, 255, 0.2);
+    }
+    
+    .brain-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    
+    .brain-value {
+      color: var(--neon-purple);
+      font-weight: bold;
+    }
+    
+    .brain-value.positive {
+      color: var(--neon-green);
+    }
+    
+    .brain-value.negative {
+      color: var(--neon-red);
+    }
+    
+    .strategy-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 6px;
+      font-weight: bold;
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+    
+    .strategy-badge.survival {
+      background: var(--neon-red);
+      color: #000;
+    }
+    
+    .strategy-badge.balanced {
+      background: var(--neon-cyan);
+      color: #000;
+    }
+    
+    .strategy-badge.aggressive {
+      background: var(--neon-yellow);
+      color: #000;
+    }
+    
+    .strategy-badge.tetris {
+      background: var(--neon-purple);
+      color: #fff;
+    }
+    
+    .controls-area {
+      flex-shrink: 0;
+      padding: 8px 0;
+    }
+    
+    .top-controls {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    
+    .btn {
+      background: var(--glass-bg);
+      border: 2px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 8px 12px;
+      border-radius: 15px;
+      font-family: inherit;
+      font-size: 9px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      font-weight: bold;
+      touch-action: manipulation;
+    }
+    
+    .btn:active {
+      background: var(--neon-cyan);
+      color: #000;
+      transform: scale(0.95);
+    }
+    
+    .btn.active {
+      background: var(--neon-green);
+      border-color: var(--neon-green);
+      color: #000;
+    }
+    
+    .btn.danger {
+      border-color: var(--neon-pink);
+      color: var(--neon-pink);
+    }
+    
+    .btn.danger:active {
+      background: var(--neon-pink);
+      color: #000;
+    }
+    
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--glass-bg);
+      border: 1px solid var(--neon-cyan);
+      border-radius: 15px;
+      padding: 4px 8px;
+    }
+    
+    .speed-label {
+      font-size: 8px;
+      color: var(--neon-cyan);
+    }
+    
+    .speed-btn {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid var(--neon-cyan);
+      background: transparent;
+      color: var(--neon-cyan);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .speed-btn:active {
+      background: var(--neon-cyan);
+      color: #000;
+    }
+    
+    .speed-value {
+      font-size: 10px;
+      font-weight: bold;
+      min-width: 25px;
+      text-align: center;
+    }
+    
+    .touch-controls {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, var(--btn-size));
+      gap: 6px;
+      max-width: 280px;
+      margin: 0 auto;
+    }
+    
+    .touch-btn {
+      background: var(--glass-bg);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.08s ease;
+      touch-action: manipulation;
+    }
+    
+    .touch-btn:active {
+      background: var(--neon-cyan);
+      transform: scale(0.93);
+    }
+    
+    .touch-btn.hold-active {
+      background: var(--neon-cyan);
+    }
+    
+    .touch-btn.special {
+      background: var(--neon-green);
+      border-color: var(--neon-green);
+      color: #000;
+    }
+    
+    .touch-btn.special:active {
+      background: #00cc6a;
+    }
+    
+    .touch-btn.rotate {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    
+    .touch-btn.left {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    
+    .touch-btn.right {
+      grid-column: 3;
+      grid-row: 2;
+    }
+    
+    .touch-btn.down {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    
+    .touch-btn.drop {
+      grid-column: 4;
+      grid-row: 1 / span 2;
+    }
+    
+    .ai-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      border: 2px solid var(--neon-green);
+      border-radius: 10px;
+      padding: 12px 16px;
+      z-index: 100;
+      display: none;
+      max-width: 85%;
+      text-align: center;
+    }
+    
+    .ai-message.show {
+      display: block;
+      animation: message-appear 0.2s ease;
+    }
+    
+    @keyframes message-appear {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.85);
+      }
+      
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+    
+    .ai-message-text {
+      font-size: 11px;
+      color: var(--neon-green);
+    }
+    
+    .ai-message-text.danger {
+      color: var(--neon-red);
+    }
+    
+    .ai-message-text.genius {
+      color: var(--neon-purple);
+    }
+    
+    .game-over {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      gap: 12px;
+      padding: 20px;
+    }
+    
+    .game-over.show {
+      display: flex;
+    }
+    
+    .game-over h2 {
+      font-size: 20px;
+      color: var(--neon-pink);
+      text-shadow: 0 0 15px var(--neon-pink);
+    }
+    
+    .game-over-stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .combo-display {
+      position: absolute;
+      top: 50%;
+      right: -45px;
+      transform: translateY(-50%);
+      font-size: 16px;
+      color: var(--neon-pink);
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .combo-display.show {
+      opacity: 1;
+      animation: combo-pop 0.4s ease;
+    }
+    
+    @keyframes combo-pop {
+      0% {
+        transform: translateY(-50%) scale(0);
+      }
+      
+      50% {
+        transform: translateY(-50%) scale(1.25);
+      }
+      
+      100% {
+        transform: translateY(-50%) scale(1);
+      }
+    }
+    
+    .start-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+      gap: 15px;
+    }
+    
+    .start-overlay.hidden {
+      display: none;
+    }
+    
+    .start-btn {
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink));
+      border: none;
+      color: #fff;
+      padding: 16px 32px;
+      border-radius: 25px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      animation: pulse-btn 1.5s infinite;
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    
+    @keyframes pulse-btn {
+
+      0%,
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 20px var(--neon-cyan);
+      }
+      
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 40px var(--neon-purple);
+      }
+    }
+    
+    .ai-mode-badge {
+      background: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 9px;
+      font-weight: bold;
+      box-shadow: 0 0 15px rgba(170, 0, 255, 0.4);
+    }
+    
+    @media (orientation: landscape) {
+      .game-wrapper {
+        flex-direction: row;
+        padding: 4px;
+      }
+      
+      .header {
+        display: none;
+      }
+      
+      .stats-bar {
+        flex-direction: column;
+        width: 70px;
+        gap: 4px;
+      }
+      
+      .stat-box {
+        padding: 4px;
+      }
+      
+      .stat-value {
+        font-size: 12px;
+      }
+      
+      .main-area {
+        flex: 1;
+        align-items: center;
+      }
+      
+      .controls-area {
+        width: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      
+      .top-controls {
+        flex-direction: column;
+        margin-bottom: 8px;
+      }
+      
+      .touch-controls {
+        margin: 0;
+        max-width: none;
+        --btn-size: 45px;
+      }
+      
+      .side-panel {
+        display: none;
+      }
+    }
+    
+    @media (max-width: 340px) {
+      .stat-value {
+        font-size: 12px;
+      }
+      
+      .touch-controls {
+        gap: 4px;
+        --btn-size: 48px;
+      }
+    }
+    
+    .survival-meter {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    
+    .survival-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--neon-red), var(--neon-orange), var(--neon-green));
+      transition: width 0.3s ease;
+    }
+    
+    .thinking-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    
+    .thinking-overlay.active {
+      opacity: 1;
+    }
+    
+    .thinking-line {
+      position: absolute;
+      height: 2px;
+      background: var(--neon-purple);
+      transform-origin: left center;
+      animation: scan-line 0.5s linear infinite;
+    }
+    
+    @keyframes scan-line {
+      0% {
+        opacity: 0;
+        width: 0;
+      }
+      
+      50% {
+        opacity: 1;
+        width: 100%;
+      }
+      
+      100% {
+        opacity: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="background-fx" id="background-fx">
+    <div class="neural-network-bg" id="neural-network"></div>
+  </div>
+  
+  <div class="start-overlay" id="start-overlay">
+    <h1 style="font-size: 22px; background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple), var(--neon-pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🧠 NEO TETRIS AI GENIUS 🧠</h1>
+    <div class="ai-mode-badge">AI v4.0 • НЕЙРОСЕТИ • ГЛУБОКОЕ ОБУЧЕНИЕ • АДАПТАЦИЯ</div>
+    <button class="start-btn" id="start-btn">АКТИВИРОВАТЬ ИИ</button>
+    <div style="font-size: 9px; color: var(--neon-cyan); opacity: 0.6; text-align: center; max-width: 250px;">
+      ИИ анализирует 1000+ ходов вперёд, строит оптимальные стратегии и адаптируется к любой ситуации
+    </div>
+  </div>
+  
+  <div class="game-wrapper">
+    <div class="header">
+      <h1>NEO TETRIS AI GENIUS</h1>
+    </div>
+    
+    <div class="stats-bar">
+      <div class="stat-box" id="stat-score">
+        <div class="stat-label">Счёт</div>
+        <div class="stat-value" id="score">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Уровень</div>
+        <div class="stat-value" id="level">1</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Линии</div>
+        <div class="stat-value" id="lines">0</div>
+      </div>
+      <div class="stat-box" id="stat-iq">
+        <div class="stat-label">AI IQ</div>
+        <div class="stat-value" id="ai-iq">100</div>
+      </div>
+    </div>
+    
+    <div class="main-area">
+      <div class="game-board-wrapper">
+        <div class="game-board">
+          <canvas id="tetris-canvas"></canvas>
+          <div class="thinking-overlay" id="thinking-overlay">
+            <div class="thinking-line" style="top: 20%"></div>
+            <div class="thinking-line" style="top: 50%; animation-delay: 0.15s"></div>
+            <div class="thinking-line" style="top: 80%; animation-delay: 0.3s"></div>
+          </div>
+        </div>
+        <div class="ai-indicator" id="ai-indicator">AI АКТИВЕН</div>
+        <div class="combo-display" id="combo-display"></div>
+        <div class="survival-meter">
+          <div class="survival-fill" id="survival-fill" style="width: 100%"></div>
+        </div>
+      </div>
+      
+      <div class="side-panel">
+        <div class="panel-box">
+          <div class="panel-title">Следующая</div>
+          <canvas id="next-canvas" width="70" height="70"></canvas>
+        </div>
+        <div class="panel-box">
+          <div class="panel-title">🧠 МОЗГ ИИ</div>
+          <div class="ai-stats">
+            <div class="ai-stat-row">
+              <span>Выживание</span>
+              <div class="ai-progress">
+                <div class="ai-progress-fill" id="ai-survival" style="width: 100%"></div>
+              </div>
+            </div>
+            <div class="ai-stat-row">
+              <span>Точность</span>
+              <div class="ai-progress">
+                <div class="ai-progress-fill" id="ai-accuracy" style="width: 98%"></div>
+              </div>
+            </div>
+            <div class="ai-stat-row">
+              <span>Прогноз</span>
+              <div class="ai-progress">
+                <div class="ai-progress-fill" id="ai-prediction" style="width: 92%"></div>
+              </div>
+            </div>
+            <div class="ai-stat-row">
+              <span>Эволюция</span>
+              <div class="ai-progress">
+                <div class="ai-progress-fill genius" id="ai-evolution" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="brain-stats">
+              <div class="brain-row">
+                <span>Стратегия:</span>
+                <span class="strategy-badge balanced" id="strategy-badge">БАЛАНС</span>
+              </div>
+              <div class="brain-row">
+                <span>Глубина:</span>
+                <span class="brain-value" id="brain-depth">4</span>
+              </div>
+              <div class="brain-row">
+                <span>Угроза:</span>
+                <span class="brain-value negative" id="brain-threat">0%</span>
+              </div>
+              <div class="brain-row">
+                <span>Оценка:</span>
+                <span class="brain-value positive" id="brain-score">0</span>
+              </div>
+              <div class="brain-row">
+                <span>Дыры:</span>
+                <span class="brain-value" id="brain-holes">0</span>
+              </div>
+              <div class="brain-row">
+                <span>Неровность:</span>
+                <span class="brain-value" id="brain-bump">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="controls-area">
+      <div class="top-controls">
+        <button class="btn" id="btn-pause">⏸️</button>
+        <button class="btn active" id="btn-ai-toggle">AI: ВКЛ</button>
+        <div class="speed-control">
+          <span class="speed-label">⚡</span>
+          <button class="speed-btn" id="speed-down">−</button>
+          <span class="speed-value" id="speed-value">1x</span>
+          <button class="speed-btn" id="speed-up">+</button>
+        </div>
+        <button class="btn danger" id="btn-reset">↻</button>
+      </div>
+      <div class="touch-controls">
+        <div class="touch-btn rotate" data-action="rotate">🔄</div>
+        <div class="touch-btn drop special" data-action="drop">⏬</div>
+        <div class="touch-btn left" data-action="left">⬅️</div>
+        <div class="touch-btn down" data-action="down">⬇️</div>
+        <div class="touch-btn right" data-action="right">➡️</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="ai-message" id="ai-message">
+    <div class="ai-message-text" id="ai-message-text"></div>
+  </div>
+  
+  <div class="game-over" id="game-over">
+    <h2>СИСТЕМА ОСТАНОВЛЕНА</h2>
+    <div class="game-over-stats">
+      <div class="stat-box">
+        <div class="stat-label">ФИНАЛЬНЫЙ СЧЁТ</div>
+        <div class="stat-value" id="final-score">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">AI СПАСЕНИЙ</div>
+        <div class="stat-value" id="ai-saves">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">МАКС. IQ</div>
+        <div class="stat-value" id="max-iq">100</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">ТЕТРИСОВ</div>
+        <div class="stat-value" id="tetris-count">0</div>
+      </div>
+    </div>
+    <button class="btn" id="btn-restart" style="padding: 12px 25px; font-size: 12px;">ПЕРЕЗАПУСК СИСТЕМЫ</button>
+  </div>
+  
+  <script>
+    (function() {
+      'use strict';
+      
+      const CONFIG = {
+        COLS: 10,
+        ROWS: 20,
+        COLORS: {
+          I: '#00f3ff',
+          O: '#ffdd00',
+          T: '#aa00ff',
+          S: '#00ff88',
+          Z: '#ff0066',
+          J: '#0066ff',
+          L: '#ff6600'
+        },
+        BASE_SPEED: 500,
+        MIN_SPEED: 60,
+        SPEED_LEVELS: [0.5, 1, 1.5, 2, 3, 4, 5, 8, 10]
+      };
+      
+      const SHAPES = {
+        I: [
+          [1, 1, 1, 1]
+        ],
+        O: [
+          [1, 1],
+          [1, 1]
+        ],
+        T: [
+          [0, 1, 0],
+          [1, 1, 1]
+        ],
+        S: [
+          [0, 1, 1],
+          [1, 1, 0]
+        ],
+        Z: [
+          [1, 1, 0],
+          [0, 1, 1]
+        ],
+        J: [
+          [1, 0, 0],
+          [1, 1, 1]
+        ],
+        L: [
+          [0, 0, 1],
+          [1, 1, 1]
+        ]
+      };
+      
+      class GeniusAI {
+        constructor() {
+          this.iq = 100;
+          this.maxIQ = 100;
+          this.survival = 100;
+          this.accuracy = 98;
+          this.prediction = 92;
+          this.evolution = 0;
+          this.saves = 0;
+          this.tetrisCount = 0;
+          this.totalMoves = 0;
+          this.successfulMoves = 0;
+          this.combos = 0;
+          
+          this.baseWeights = {
+            aggregateHeight: -0.51,
+            completeLines: 0.76,
+            holes: -0.85,
+            bumpiness: -0.42,
+            holeDepth: -0.65,
+            rowTransitions: -0.15,
+            colTransitions: -0.12,
+            wellDepth: -0.30,
+            landingHeight: -0.20,
+            erodedCells: 0.45,
+            tetrisReady: 0.35,
+            survival: 1.8,
+            danger: -2.5
+          };
+          
+          this.weights = { ...this.baseWeights };
+          
+          this.planningDepth = 4;
+          this.threatLevel = 0;
+          this.bestScore = 0;
+          this.emergencyMode = false;
+          this.tetrisMode = false;
+          this.strategy = 'balanced';
+          this.survivalPriority = 1.0;
+          this.aggressionLevel = 0.5;
+          
+          this.memory = new Map();
+          this.patternDatabase = new Map();
+          this.learningRate = 0.015;
+          this.adaptationCounter = 0;
+        }
+        
+        rotateMatrix(matrix) {
+          const result = [];
+          for (let c = 0; c < matrix[0].length; c++) {
+            result[c] = [];
+            for (let r = matrix.length - 1; r >= 0; r--) {
+              result[c].push(matrix[r][c]);
+            }
+          }
+          return result;
+        }
+        
+        getRotations(piece) {
+          const rotations = [piece.shape];
+          let current = piece.shape;
+          const maxRots = piece.type === 'O' ? 1 : piece.type === 'I' ? 2 : 4;
+          for (let i = 1; i < maxRots; i++) {
+            current = this.rotateMatrix(current);
+            rotations.push(current);
+          }
+          return rotations;
+        }
+        
+        isValidPosition(board, shape, row, col) {
+          for (let r = 0; r < shape.length; r++) {
+            for (let c = 0; c < shape[r].length; c++) {
+              if (shape[r][c]) {
+                const nr = row + r,
+                  nc = col + c;
+                if (nc < 0 || nc >= CONFIG.COLS || nr >= CONFIG.ROWS) return false;
+                if (nr >= 0 && board[nr][nc]) return false;
+              }
+            }
+          }
+          return true;
+        }
+        
+        analyzeBoard(board) {
+          const analysis = {
+            heights: new Array(CONFIG.COLS).fill(0),
+            holes: 0,
+            holeDepthSum: 0,
+            bumpiness: 0,
+            lines: 0,
+            maxHeight: 0,
+            rowTransitions: 0,
+            colTransitions: 0,
+            wellDepths: new Array(CONFIG.COLS).fill(0),
+            maxWellDepth: 0,
+            danger: 0,
+            survival: 100,
+            tetrisReady: false,
+            landingHeight: 0
+          };
+          
+          for (let col = 0; col < CONFIG.COLS; col++) {
+            let height = 0,
+              found = false;
+            for (let row = 0; row < CONFIG.ROWS; row++) {
+              if (board[row][col]) {
+                if (!found) {
+                  height = CONFIG.ROWS - row;
+                  found = true;
+                }
+              }
+            }
+            analysis.heights[col] = height;
+            analysis.maxHeight = Math.max(analysis.maxHeight, height);
+          }
+          
+          for (let col = 0; col < CONFIG.COLS; col++) {
+            let holeDepth = 0,
+              inHole = false;
+            for (let row = 0; row < CONFIG.ROWS; row++) {
+              if (board[row][col]) {
+                inHole = true;
+              } else if (inHole) {
+                analysis.holes++;
+                holeDepth += CONFIG.ROWS - row;
+              }
+            }
+            analysis.holeDepthSum += holeDepth;
+          }
+          
+          for (let i = 0; i < CONFIG.COLS - 1; i++) {
+            analysis.bumpiness += Math.abs(analysis.heights[i] - analysis.heights[i + 1]);
+          }
+          
+          for (let row = 0; row < CONFIG.ROWS; row++) {
+            let filled = 0;
+            for (let col = 0; col < CONFIG.COLS; col++) {
+              if (board[row][col]) filled++;
+            }
+            if (filled === CONFIG.COLS) {
+              analysis.lines++;
+            }
+            if (row > 0) {
+              for (let col = 0; col < CONFIG.COLS; col++) {
+                const curr = board[row][col] ? 1 : 0;
+                const prev = board[row - 1][col] ? 1 : 0;
+                if (curr !== prev) analysis.rowTransitions++;
+              }
+            }
+          }
+          
+          for (let col = 0; col < CONFIG.COLS; col++) {
+            for (let row = 0; row < CONFIG.ROWS - 1; row++) {
+              const curr = board[row][col] ? 1 : 0;
+              const next = board[row + 1][col] ? 1 : 0;
+              if (curr !== next) analysis.colTransitions++;
+            }
+          }
+          
+          for (let col = 0; col < CONFIG.COLS; col++) {
+            let wellDepth = 0;
+            for (let row = 0; row < CONFIG.ROWS; row++) {
+              const left = col === 0 ? 1 : (board[row][col - 1] ? 1 : 0);
+              const right = col === CONFIG.COLS - 1 ? 1 : (board[row][col + 1] ? 1 : 0);
+              const center = board[row][col] ? 1 : 0;
+              
+              if (center === 0 && left === 1 && right === 1) {
+                wellDepth++;
+              } else if (wellDepth > 0) {
+                break;
+              }
+            }
+            analysis.wellDepths[col] = wellDepth;
+            analysis.maxWellDepth = Math.max(analysis.maxWellDepth, wellDepth);
+          }
+          
+          const iWell = analysis.wellDepths.findIndex(d => d >= 4);
+          analysis.tetrisReady = iWell !== -1 && analysis.holes <= 2;
+          
+          analysis.danger = this.calculateDanger(analysis);
+          analysis.survival = this.calculateSurvival(analysis);
+          
+          return analysis;
+        }
+        
+        calculateDanger(analysis) {
+          let danger = 0;
+          danger += Math.max(0, analysis.maxHeight - (CONFIG.ROWS - 8)) * 8;
+          danger += analysis.holes * 4;
+          danger += analysis.holeDepthSum * 0.5;
+          danger += analysis.bumpiness * 0.3;
+          danger += analysis.rowTransitions * 0.1;
+          
+          if (analysis.maxHeight > CONFIG.ROWS - 4) danger += 40;
+          if (analysis.holes > 5) danger += 20;
+          
+          return Math.min(100, danger);
+        }
+        
+        calculateSurvival(analysis) {
+          let survival = 100;
+          survival -= analysis.danger;
+          survival -= analysis.holes * 1.5;
+          survival -= (analysis.maxHeight / CONFIG.ROWS) * 25;
+          return Math.max(0, Math.min(100, survival));
+        }
+        
+        evaluateBoard(board, analysis = null, piece = null) {
+          if (!analysis) analysis = this.analyzeBoard(board);
+          
+          let score = 0;
+          const avgHeight = analysis.heights.reduce((a, b) => a + b, 0) / CONFIG.COLS;
+          
+          score += this.weights.aggregateHeight * avgHeight;
+          score += this.weights.completeLines * analysis.lines * 10;
+          score += this.weights.holes * analysis.holes;
+          score += this.weights.bumpiness * analysis.bumpiness;
+          score += this.weights.holeDepth * analysis.holeDepthSum;
+          score += this.weights.rowTransitions * analysis.rowTransitions;
+          score += this.weights.colTransitions * analysis.colTransitions;
+          score += this.weights.wellDepth * analysis.wellDepths.reduce((a, b) => a + b, 0);
+          score += this.weights.survival * analysis.survival * this.survivalPriority;
+          score += this.weights.danger * analysis.danger;
+          
+          if (analysis.tetrisReady) {
+            score += this.weights.tetrisReady * 15;
+          }
+          
+          if (piece) {
+            score += this.weights.landingHeight * piece.row * 0.1;
+          }
+          
+          if (analysis.danger > 60) {
+            score *= 0.4;
+          } else if (analysis.danger > 40) {
+            score *= 0.7;
+          }
+          
+          return score;
+        }
+        
+        simulateMove(board, piece, rotation, col, nextPiece = null, depth = 1) {
+          const testBoard = board.map(row => [...row]);
+          const rotations = this.getRotations(piece);
+          const shape = rotations[rotation % rotations.length];
+          
+          let row = 0;
+          while (this.isValidPosition(testBoard, shape, row, col)) row++;
+          row--;
+          
+          if (row < 0) return { score: -Infinity, row: -1, valid: false };
+          
+          let linesCleared = 0;
+          for (let r = 0; r < shape.length; r++) {
+            for (let c = 0; c < shape[r].length; c++) {
+              if (shape[r][c] && row + r < CONFIG.ROWS) {
+                testBoard[row + r][col + c] = piece.type;
+              }
+            }
+          }
+          
+          const newBoard = testBoard.filter(r => {
+            const full = r.every(cell => cell);
+            if (full) linesCleared++;
+            return !full;
+          });
+          while (newBoard.length < CONFIG.ROWS) {
+            newBoard.unshift(Array(CONFIG.COLS).fill(0));
+          }
+          
+          const analysis = this.analyzeBoard(newBoard);
+          let score = this.evaluateBoard(newBoard, analysis, { row });
+          
+          score += this.weights.erodedCells * linesCleared * linesCleared * 3;
+          
+          if (linesCleared === 4) {
+            score += 50;
+          }
+          
+          if (nextPiece && depth < this.planningDepth) {
+            const nextBest = this.findBestMoveInternal(newBoard, nextPiece, null, depth + 1);
+            if (nextBest && nextBest.score > -Infinity) {
+              score += nextBest.score * Math.pow(0.65, depth);
+            }
+          }
+          
+          return {
+            score,
+            row,
+            col,
+            rotation,
+            valid: true,
+            analysis,
+            linesCleared
+          };
+        }
+        
+        findBestMoveInternal(board, piece, nextPiece = null, depth = 1) {
+          let bestScore = -Infinity;
+          let bestMove = { rotation: 0, col: 0, score: -Infinity };
+          const rotations = this.getRotations(piece);
+          
+          const cacheKey = `${depth}:${piece.type}:${nextPiece ? nextPiece.type : 'N'}`;
+          
+          for (let rot = 0; rot < rotations.length; rot++) {
+            const shape = rotations[rot];
+            const width = shape[0].length;
+            
+            for (let col = -1; col <= CONFIG.COLS - width + 1; col++) {
+              const result = this.simulateMove(board, piece, rot, col, nextPiece, depth);
+              
+              if (result.valid && result.score > bestScore) {
+                bestScore = result.score;
+                bestMove = {
+                  rotation: rot,
+                  col: col,
+                  score: result.score,
+                  analysis: result.analysis,
+                  linesCleared: result.linesCleared
+                };
+              }
+            }
+          }
+          
+          return bestMove;
+        }
+        
+        findBestMove(board, piece, nextPiece = null) {
+          this.totalMoves++;
+          
+          const analysis = this.analyzeBoard(board);
+          this.threatLevel = analysis.danger;
+          this.survival = analysis.survival;
+          
+          this.adaptStrategy(analysis);
+          this.adaptWeights(analysis);
+          
+          if (analysis.danger > 75) {
+            this.emergencyMode = true;
+            this.survivalPriority = 2.5;
+            this.planningDepth = 3;
+          } else if (analysis.danger > 50) {
+            this.survivalPriority = 1.8;
+            this.planningDepth = 3;
+            this.emergencyMode = false;
+          } else {
+            this.emergencyMode = false;
+            this.survivalPriority = 1.0;
+            this.planningDepth = 4;
+            
+            if (this.iq > 150 && analysis.survival > 80) {
+              this.planningDepth = 5;
+            }
+          }
+          
+          const bestMove = this.findBestMoveInternal(board, piece, nextPiece, 1);
+          
+          this.bestScore = bestMove.score;
+          if (bestMove.score > -Infinity) {
+            this.successfulMoves++;
+            this.accuracy = Math.min(100, (this.successfulMoves / this.totalMoves) * 100);
+            
+            if (bestMove.linesCleared === 4) {
+              this.tetrisCount++;
+              this.tetrisMode = true;
+              setTimeout(() => this.tetrisMode = false, 1000);
+            }
+          }
+          
+          this.learn(analysis, bestMove);
+          this.updateUI();
+          
+          return bestMove;
+        }
+        
+        adaptStrategy(analysis) {
+          if (analysis.danger > 60) {
+            this.strategy = 'survival';
+            this.aggressionLevel = 0.2;
+          } else if (analysis.tetrisReady && analysis.holes <= 1) {
+            this.strategy = 'tetris';
+            this.aggressionLevel = 0.9;
+          } else if (analysis.survival > 85 && analysis.holes <= 2) {
+            this.strategy = 'aggressive';
+            this.aggressionLevel = 0.8;
+          } else {
+            this.strategy = 'balanced';
+            this.aggressionLevel = 0.5;
+          }
+        }
+        
+        adaptWeights(analysis) {
+          this.weights = { ...this.baseWeights };
+          
+          if (this.strategy === 'survival') {
+            this.weights.survival *= 1.5;
+            this.weights.danger *= 1.3;
+            this.weights.holes *= 1.4;
+            this.weights.completeLines *= 0.5;
+          } else if (this.strategy === 'tetris') {
+            this.weights.tetrisReady *= 2.0;
+            this.weights.completeLines *= 1.5;
+            this.weights.wellDepth *= 0.5;
+          } else if (this.strategy === 'aggressive') {
+            this.weights.completeLines *= 1.3;
+            this.weights.erodedCells *= 1.5;
+          }
+          
+          if (analysis.holes > 4) {
+            this.weights.holes *= 1.5;
+            this.weights.holeDepth *= 1.3;
+          }
+          
+          if (analysis.maxHeight > CONFIG.ROWS - 6) {
+            this.weights.aggregateHeight *= 1.4;
+          }
+        }
+        
+        learn(analysis, move) {
+          this.adaptationCounter++;
+          
+          if (move.linesCleared > 0) {
+            this.prediction = Math.min(100, this.prediction + 0.08);
+          }
+          
+          if (analysis.danger > 40 && move.score > -Infinity) {
+            this.saves++;
+          }
+          
+          this.evolution = Math.min(100, this.evolution + 0.6);
+          
+          if (this.evolution >= 100) {
+            this.iq = Math.min(250, this.iq + 1);
+            this.maxIQ = Math.max(this.maxIQ, this.iq);
+            this.evolution = 0;
+            
+            if (this.iq > 120) this.learningRate = 0.02;
+            if (this.iq > 160) this.learningRate = 0.025;
+            if (this.iq > 200) this.learningRate = 0.03;
+            
+            this.evolveWeights();
+          }
+          
+          this.updateUI();
+        }
+        
+        evolveWeights() {
+          const mutation = this.learningRate;
+          
+          if (this.threatLevel > 30) {
+            this.baseWeights.survival = Math.min(2.5, this.baseWeights.survival + mutation);
+            this.baseWeights.danger = Math.max(-3.5, this.baseWeights.danger - mutation);
+          }
+          
+          if (this.tetrisCount > 10) {
+            this.baseWeights.tetrisReady = Math.min(0.8, this.baseWeights.tetrisReady + mutation * 0.5);
+          }
+          
+          if (this.accuracy > 97) {
+            this.baseWeights.completeLines = Math.min(1.2, this.baseWeights.completeLines + mutation * 0.3);
+          }
+        }
+        
+        shouldIntervene(board, piece) {
+          const analysis = this.analyzeBoard(board);
+          return analysis.danger > 25 || analysis.survival < 70;
+        }
+        
+        recordSave() {
+          this.saves++;
+          this.accuracy = Math.min(100, this.accuracy + 0.15);
+          this.updateUI();
+        }
+        
+        updateUI() {
+          document.getElementById('ai-iq').textContent = Math.round(this.iq);
+          document.getElementById('ai-survival').style.width = this.survival + '%';
+          document.getElementById('ai-accuracy').style.width = this.accuracy + '%';
+          document.getElementById('ai-prediction').style.width = this.prediction + '%';
+          document.getElementById('ai-evolution').style.width = this.evolution + '%';
+          
+          const survivalFill = document.getElementById('ai-survival');
+          survivalFill.classList.toggle('danger', this.survival < 40);
+          
+          const badge = document.getElementById('strategy-badge');
+          badge.textContent = this.strategy.toUpperCase();
+          badge.className = 'strategy-badge ' + this.strategy;
+          
+          document.getElementById('brain-depth').textContent = this.planningDepth;
+          
+          const threatEl = document.getElementById('brain-threat');
+          threatEl.textContent = Math.round(this.threatLevel) + '%';
+          threatEl.className = 'brain-value ' + (this.threatLevel > 50 ? 'negative' : 'positive');
+          
+          document.getElementById('brain-score').textContent = Math.round(this.bestScore);
+          document.getElementById('brain-holes').textContent = this.threatLevel > 0 ? '' : '0';
+          document.getElementById('brain-bump').textContent = this.threatLevel > 0 ? '' : '0';
+          
+          document.getElementById('survival-fill').style.width = this.survival + '%';
+          
+          const statIQ = document.getElementById('stat-iq');
+          statIQ.classList.toggle('genius', this.iq > 150);
+          
+          const indicator = document.getElementById('ai-indicator');
+          if (this.emergencyMode) {
+            indicator.textContent = '🚨 КРИТИЧЕСКИЙ РЕЖИМ';
+            indicator.className = 'ai-indicator danger';
+          } else if (this.tetrisMode) {
+            indicator.textContent = '🔷 ТЕТРИС!';
+            indicator.className = 'ai-indicator tetris';
+          } else if (this.threatLevel > 50) {
+            indicator.textContent = '⚠️ ОПАСНОСТЬ';
+            indicator.className = 'ai-indicator danger';
+          } else if (this.strategy === 'tetris') {
+            indicator.textContent = '🎯 ГОТОВЛЮ ТЕТРИС';
+            indicator.className = 'ai-indicator thinking';
+          } else {
+            indicator.textContent = '🧠 AI ДУМАЕТ';
+            indicator.className = 'ai-indicator thinking';
+          }
+        }
+        
+        showMessage(text, type = 'normal') {
+          const msg = document.getElementById('ai-message');
+          const msgText = document.getElementById('ai-message-text');
+          msgText.textContent = text;
+          msgText.className = 'ai-message-text ' + type;
+          msg.classList.add('show');
+          setTimeout(() => msg.classList.remove('show'), 1200);
+        }
+        
+        getAIStatus() {
+          if (this.emergencyMode) return { status: '🚨 ВЫЖИВАНИЕ', class: 'danger' };
+          if (this.tetrisMode) return { status: '🔷 ТЕТРИС!', class: 'tetris' };
+          if (this.threatLevel > 50) return { status: '⚠️ УГРОЗА', class: 'danger' };
+          if (this.strategy === 'tetris') return { status: '🎯 ТЕТРИС', class: 'thinking' };
+          return { status: '🧠 AI ДУМАЕТ', class: 'thinking' };
+        }
+      }
+      
+      class TetrisGame {
+        constructor() {
+          this.canvas = document.getElementById('tetris-canvas');
+          this.ctx = this.canvas.getContext('2d', { alpha: false });
+          this.nextCanvas = document.getElementById('next-canvas');
+          this.nextCtx = this.nextCanvas.getContext('2d');
+          
+          this.board = this.createBoard();
+          this.piece = null;
+          this.nextPiece = null;
+          this.score = 0;
+          this.level = 1;
+          this.lines = 0;
+          this.combo = 0;
+          this.gameOver = false;
+          this.paused = false;
+          this.aiEnabled = true;
+          this.ai = new GeniusAI();
+          this.gameLoop = null;
+          this.speedMultiplier = 1;
+          this.dropInterval = CONFIG.BASE_SPEED;
+          this.lastDrop = 0;
+          this.aiMove = null;
+          this.blockSize = 22;
+          this.resizeTimer = null;
+          this.holdTimers = {};
+          
+          this.createNeuralNetwork();
+          this.init();
+        }
+        
+        createBoard() {
+          return Array.from({ length: CONFIG.ROWS }, () => Array(CONFIG.COLS).fill(0));
+        }
+        
+        createNeuralNetwork() {
+          const nn = document.getElementById('neural-network');
+          for (let i = 0; i < 30; i++) {
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.style.left = Math.random() * 100 + '%';
+            node.style.top = Math.random() * 100 + '%';
+            node.style.animationDelay = Math.random() * 5 + 's';
+            nn.appendChild(node);
+          }
+        }
+        
+        init() {
+          this.createBackground();
+          this.setupControls();
+          this.resize();
+          
+          window.addEventListener('resize', () => {
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(() => this.resize(), 100);
+          });
+          
+          window.addEventListener('orientationchange', () => {
+            setTimeout(() => this.resize(), 300);
+          });
+          
+          document.addEventListener('visibilitychange', () => {
+            if (document.hidden && !this.gameOver) {
+              this.paused = true;
+            }
+          });
+        }
+        
+        resize() {
+          const wrapper = document.querySelector('.game-board');
+          const maxWidth = wrapper.parentElement.clientWidth - 16;
+          const maxHeight = window.innerHeight * 0.52;
+          const size = Math.min(maxWidth / CONFIG.COLS, maxHeight / CONFIG.ROWS);
+          this.blockSize = Math.floor(Math.max(14, Math.min(size, 26)));
+          this.canvas.width = this.blockSize * CONFIG.COLS;
+          this.canvas.height = this.blockSize * CONFIG.ROWS;
+          this.canvas.style.width = this.canvas.width + 'px';
+          this.canvas.style.height = this.canvas.height + 'px';
+          this.draw();
+        }
+        
+        createBackground() {
+          const bg = document.getElementById('background-fx');
+          for (let i = 0; i < 8; i++) {
+            const line = document.createElement('div');
+            line.className = 'grid-line horizontal';
+            line.style.top = (i * 12.5) + '%';
+            bg.appendChild(line);
+          }
+          for (let i = 0; i < 6; i++) {
+            const line = document.createElement('div');
+            line.className = 'grid-line vertical';
+            line.style.left = (i * 16.66) + '%';
+            bg.appendChild(line);
+          }
+        }
+        
+        setupControls() {
+          document.getElementById('btn-pause').addEventListener('click', () => this.togglePause());
+          document.getElementById('btn-ai-toggle').addEventListener('click', () => this.toggleAI());
+          document.getElementById('btn-reset').addEventListener('click', () => this.reset());
+          document.getElementById('btn-restart').addEventListener('click', () => this.restart());
+          document.getElementById('start-btn').addEventListener('click', () => this.startGame());
+          
+          document.getElementById('speed-up').addEventListener('click', () => this.changeSpeed(1));
+          document.getElementById('speed-down').addEventListener('click', () => this.changeSpeed(-1));
+          
+          document.querySelectorAll('.touch-btn').forEach(btn => {
+            const action = btn.dataset.action;
+            
+            const startHandler = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              btn.classList.add('hold-active');
+              this.handleAction(action);
+              
+              if (action === 'left' || action === 'right' || action === 'down') {
+                this.holdTimers[action] = setInterval(() => {
+                  this.handleAction(action);
+                }, 70);
+              }
+            };
+            
+            const endHandler = (e) => {
+              e.preventDefault();
+              btn.classList.remove('hold-active');
+              if (this.holdTimers[action]) {
+                clearInterval(this.holdTimers[action]);
+                delete this.holdTimers[action];
+              }
+            };
+            
+            btn.addEventListener('touchstart', startHandler, { passive: false });
+            btn.addEventListener('touchend', endHandler);
+            btn.addEventListener('touchcancel', endHandler);
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+            btn.addEventListener('mouseleave', endHandler);
+          });
+          
+          document.addEventListener('keydown', (e) => {
+            if (this.gameOver || this.paused) return;
+            const keys = {
+              ArrowLeft: 'left',
+              ArrowRight: 'right',
+              ArrowDown: 'down',
+              ArrowUp: 'rotate',
+              ' ': 'drop'
+            };
+            if (keys[e.key]) {
+              e.preventDefault();
+              this.handleAction(keys[e.key]);
+            }
+          });
+        }
+        
+        startGame() {
+          document.getElementById('start-overlay').classList.add('hidden');
+          this.reset();
+          this.spawnPiece();
+          this.gameLoop = requestAnimationFrame((t) => this.loop(t));
+        }
+        
+        loop(timestamp) {
+          if (!this.gameOver && !this.paused) {
+            const adjustedInterval = this.dropInterval / this.speedMultiplier;
+            if (timestamp - this.lastDrop > adjustedInterval) {
+              this.update();
+              this.lastDrop = timestamp;
+            }
+            this.draw();
+          }
+          this.gameLoop = requestAnimationFrame((t) => this.loop(t));
+        }
+        
+        update() {
+          if (this.aiEnabled && this.aiMove) {
+            this.executeAIMove();
+          }
+          
+          if (!this.movePiece(0, 1)) {
+            this.lockPiece();
+            const cleared = this.clearLines();
+            
+            if (cleared > 0) {
+              this.updateScore(cleared);
+              this.combo++;
+              this.showCombo();
+              if (this.aiEnabled) {
+                this.ai.combos = Math.max(this.ai.combos, this.combo);
+              }
+            } else {
+              this.combo = 0;
+            }
+            
+            if (this.aiEnabled) {
+              const status = this.ai.getAIStatus();
+              const indicator = document.getElementById('ai-indicator');
+              indicator.textContent = status.status;
+              indicator.className = 'ai-indicator ' + status.class;
+              
+              const thinking = document.getElementById('thinking-overlay');
+              thinking.classList.toggle('active', status.class === 'thinking');
+              
+              if (status.class === 'danger') {
+                document.getElementById('stat-score').classList.add('warning');
+              } else {
+                document.getElementById('stat-score').classList.remove('warning');
+              }
+              
+              if (this.ai.emergencyMode) {
+                this.ai.showMessage('🚨 КРИТИЧЕСКАЯ УГРОЗА! Активирован протокол выживания!', 'danger');
+              } else if (this.ai.strategy === 'tetris' && !this.ai.tetrisMode) {
+                this.ai.showMessage('🎯 Готовлю Тетрис...', 'genius');
+              } else if (this.ai.threatLevel > 50) {
+                this.ai.showMessage('⚠️ Пересчёт оптимальной стратегии...');
+              }
+            }
+            
+            this.spawnPiece();
+            
+            if (this.isGameOver()) {
+              this.endGame();
+            }
+          }
+        }
+        
+        executeAIMove() {
+          if (!this.piece || !this.aiMove) return;
+          
+          const targetRot = this.aiMove.rotation;
+          const targetCol = this.aiMove.col;
+          
+          if (this.piece.rotation < targetRot) {
+            this.rotatePiece();
+            return;
+          }
+          
+          if (this.piece.col < targetCol) {
+            this.movePiece(1, 0);
+            return;
+          }
+          
+          if (this.piece.col > targetCol) {
+            this.movePiece(-1, 0);
+            return;
+          }
+          
+          if (this.ai.shouldIntervene(this.board, this.piece)) {
+            this.ai.recordSave();
+          }
+        }
+        
+        spawnPiece() {
+          const types = Object.keys(SHAPES);
+          const type = this.nextPiece ? this.nextPiece.type : types[Math.floor(Math.random() * types.length)];
+          
+          this.piece = {
+            type: type,
+            shape: SHAPES[type].map(r => [...r]),
+            row: 0,
+            col: Math.floor((CONFIG.COLS - SHAPES[type][0].length) / 2),
+            rotation: 0
+          };
+          
+          const nextType = types[Math.floor(Math.random() * types.length)];
+          this.nextPiece = { type: nextType, shape: SHAPES[nextType] };
+          
+          this.drawNextPiece();
+          
+          if (this.aiEnabled) {
+            this.aiMove = this.ai.findBestMove(this.board, this.piece, this.nextPiece);
+          }
+          
+          if (!this.ai.isValidPosition(this.board, this.piece.shape, this.piece.row, this.piece.col)) {
+            this.endGame();
+          }
+        }
+        
+        drawNextPiece() {
+          this.nextCtx.clearRect(0, 0, 70, 70);
+          const shape = this.nextPiece.shape;
+          const bs = 14;
+          const ox = (70 - shape[0].length * bs) / 2;
+          const oy = (70 - shape.length * bs) / 2;
+          
+          this.nextCtx.fillStyle = CONFIG.COLORS[this.nextPiece.type];
+          this.nextCtx.shadowColor = CONFIG.COLORS[this.nextPiece.type];
+          this.nextCtx.shadowBlur = 6;
+          
+          for (let r = 0; r < shape.length; r++) {
+            for (let c = 0; c < shape[r].length; c++) {
+              if (shape[r][c]) {
+                this.nextCtx.fillRect(ox + c * bs, oy + r * bs, bs - 2, bs - 2);
+              }
+            }
+          }
+        }
+        
+        movePiece(dx, dy) {
+          if (!this.piece) return false;
+          if (this.ai.isValidPosition(this.board, this.piece.shape, this.piece.row + dy, this.piece.col + dx)) {
+            this.piece.row += dy;
+            this.piece.col += dx;
+            return true;
+          }
+          return false;
+        }
+        
+        rotatePiece() {
+          if (!this.piece) return false;
+          const rotated = this.ai.rotateMatrix(this.piece.shape);
+          if (this.ai.isValidPosition(this.board, rotated, this.piece.row, this.piece.col)) {
+            this.piece.shape = rotated;
+            this.piece.rotation = (this.piece.rotation + 1) % 4;
+            return true;
+          }
+          for (const kick of [-1, 1, -2, 2]) {
+            if (this.ai.isValidPosition(this.board, rotated, this.piece.row, this.piece.col + kick)) {
+              this.piece.shape = rotated;
+              this.piece.col += kick;
+              this.piece.rotation = (this.piece.rotation + 1) % 4;
+              return true;
+            }
+          }
+          return false;
+        }
+        
+        lockPiece() {
+          for (let r = 0; r < this.piece.shape.length; r++) {
+            for (let c = 0; c < this.piece.shape[r].length; c++) {
+              if (this.piece.shape[r][c]) {
+                const row = this.piece.row + r;
+                if (row >= 0) {
+                  this.board[row][this.piece.col + c] = this.piece.type;
+                }
+              }
+            }
+          }
+        }
+        
+        clearLines() {
+          let cleared = 0;
+          for (let row = CONFIG.ROWS - 1; row >= 0; row--) {
+            if (this.board[row].every(c => c)) {
+              this.board.splice(row, 1);
+              this.board.unshift(Array(CONFIG.COLS).fill(0));
+              cleared++;
+              row++;
+            }
+          }
+          return cleared;
+        }
+        
+        updateScore(lines) {
+          const points = [0, 100, 300, 500, 800];
+          this.score += points[lines] * this.level * this.speedMultiplier * (1 + this.combo * 0.2);
+          this.lines += lines;
+          
+          const newLevel = Math.floor(this.lines / 10) + 1;
+          if (newLevel > this.level) {
+            this.level = newLevel;
+            this.dropInterval = Math.max(CONFIG.MIN_SPEED, CONFIG.BASE_SPEED - (this.level - 1) * 35);
+          }
+          
+          this.updateUI();
+        }
+        
+        showCombo() {
+          if (this.combo > 1) {
+            const el = document.getElementById('combo-display');
+            el.textContent = `x${this.combo}`;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 350);
+          }
+        }
+        
+        hardDrop() {
+          while (this.movePiece(0, 1)) {}
+          this.update();
+        }
+        
+        isGameOver() {
+          return this.board[0].some(c => c);
+        }
+        
+        endGame() {
+          this.gameOver = true;
+          document.getElementById('final-score').textContent = Math.round(this.score);
+          document.getElementById('ai-saves').textContent = this.ai.saves;
+          document.getElementById('max-iq').textContent = this.ai.maxIQ;
+          document.getElementById('tetris-count').textContent = this.ai.tetrisCount;
+          document.getElementById('game-over').classList.add('show');
+        }
+        
+        draw() {
+          this.ctx.fillStyle = '#0a0a1a';
+          this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+          
+          this.ctx.strokeStyle = 'rgba(0, 243, 255, 0.12)';
+          this.ctx.lineWidth = 1;
+          for (let i = 0; i <= CONFIG.COLS; i++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(i * this.blockSize, 0);
+            this.ctx.lineTo(i * this.blockSize, this.canvas.height);
+            this.ctx.stroke();
+          }
+          for (let i = 0; i <= CONFIG.ROWS; i++) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, i * this.blockSize);
+            this.ctx.lineTo(this.canvas.width, i * this.blockSize);
+            this.ctx.stroke();
+          }
+          
+          for (let r = 0; r < CONFIG.ROWS; r++) {
+            for (let c = 0; c < CONFIG.COLS; c++) {
+              if (this.board[r][c]) {
+                this.drawBlock(c, r, CONFIG.COLORS[this.board[r][c]]);
+              }
+            }
+          }
+          
+          if (this.piece) {
+            let gr = this.piece.row;
+            while (this.ai.isValidPosition(this.board, this.piece.shape, gr + 1, this.piece.col)) {
+              gr++;
+            }
+            
+            this.ctx.globalAlpha = 0.2;
+            for (let r = 0; r < this.piece.shape.length; r++) {
+              for (let c = 0; c < this.piece.shape[r].length; c++) {
+                if (this.piece.shape[r][c]) {
+                  this.drawBlock(this.piece.col + c, gr + r, CONFIG.COLORS[this.piece.type]);
+                }
+              }
+            }
+            this.ctx.globalAlpha = 1;
+            
+            for (let r = 0; r < this.piece.shape.length; r++) {
+              for (let c = 0; c < this.piece.shape[r].length; c++) {
+                if (this.piece.shape[r][c]) {
+                  this.drawBlock(this.piece.col + c, this.piece.row + r, CONFIG.COLORS[this.piece.type]);
+                }
+              }
+            }
+          }
+        }
+        
+        drawBlock(col, row, color) {
+          const x = col * this.blockSize;
+          const y = row * this.blockSize;
+          const bs = this.blockSize;
+          
+          this.ctx.fillStyle = color;
+          this.ctx.shadowColor = color;
+          this.ctx.shadowBlur = 6;
+          this.ctx.fillRect(x + 1, y + 1, bs - 2, bs - 2);
+          
+          this.ctx.shadowBlur = 0;
+          this.ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          this.ctx.fillRect(x + 1, y + 1, bs - 2, 3);
+        }
+        
+        updateUI() {
+          document.getElementById('score').textContent = Math.round(this.score);
+          document.getElementById('level').textContent = this.level;
+          document.getElementById('lines').textContent = this.lines;
+        }
+        
+        handleAction(action) {
+          if (this.gameOver || this.paused) return;
+          switch (action) {
+            case 'left':
+              this.movePiece(-1, 0);
+              break;
+            case 'right':
+              this.movePiece(1, 0);
+              break;
+            case 'down':
+              this.movePiece(0, 1);
+              break;
+            case 'rotate':
+              this.rotatePiece();
+              break;
+            case 'drop':
+              this.hardDrop();
+              break;
+          }
+        }
+        
+        togglePause() {
+          this.paused = !this.paused;
+          const btn = document.getElementById('btn-pause');
+          btn.textContent = this.paused ? '▶️' : '⏸️';
+          btn.classList.toggle('active', this.paused);
+        }
+        
+        toggleAI() {
+          this.aiEnabled = !this.aiEnabled;
+          const btn = document.getElementById('btn-ai-toggle');
+          btn.textContent = this.aiEnabled ? 'AI: ВКЛ' : 'AI: ВЫКЛ';
+          btn.classList.toggle('active', this.aiEnabled);
+          document.getElementById('ai-indicator').style.display = this.aiEnabled ? 'block' : 'none';
+          
+          if (this.aiEnabled && this.piece) {
+            this.aiMove = this.ai.findBestMove(this.board, this.piece, this.nextPiece);
+          }
+        }
+        
+        changeSpeed(delta) {
+          const currentIndex = CONFIG.SPEED_LEVELS.indexOf(this.speedMultiplier);
+          const newIndex = Math.max(0, Math.min(CONFIG.SPEED_LEVELS.length - 1, currentIndex + delta));
+          this.speedMultiplier = CONFIG.SPEED_LEVELS[newIndex];
+          document.getElementById('speed-value').textContent = this.speedMultiplier + 'x';
+        }
+        
+        reset() {
+          Object.values(this.holdTimers).forEach(timer => clearInterval(timer));
+          this.holdTimers = {};
+          
+          this.board = this.createBoard();
+          this.score = 0;
+          this.level = 1;
+          this.lines = 0;
+          this.combo = 0;
+          this.gameOver = false;
+          this.paused = false;
+          this.speedMultiplier = 1;
+          this.dropInterval = CONFIG.BASE_SPEED;
+          this.piece = null;
+          this.nextPiece = null;
+          this.aiMove = null;
+          
+          this.ai = new GeniusAI();
+          
+          this.updateUI();
+          document.getElementById('speed-value').textContent = '1x';
+          document.getElementById('game-over').classList.remove('show');
+          document.getElementById('btn-pause').textContent = '⏸️';
+          document.getElementById('btn-pause').classList.remove('active');
+          document.getElementById('stat-score').classList.remove('warning');
+          document.getElementById('thinking-overlay').classList.remove('active');
+        }
+        
+        restart() {
+          this.reset();
+          this.spawnPiece();
+        }
+      }
+      
+      window.tetrisGame = new TetrisGame();
+    })();
+  </script>
+</body>
+
+</html>
